@@ -45,6 +45,12 @@ bootstrapApplication(AppComponent, {
         component: DetailComponent
       },
       {
+        path: 'numbers',
+        loadComponent: () => import('./app/pages/numbers/numbers.component')
+        .then(m => m.NumbersComponent),
+        title: 'Gestionnaire de Nombres'
+      },
+      {
         path: '**',
         component: PageNotFoundComponent
       }

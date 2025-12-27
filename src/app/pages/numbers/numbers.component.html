@@ -1,0 +1,123 @@
+<div class="numbers-container">
+  <!-- Header -->
+  <header class="page-header">
+    <h1>🔢 Gestionnaire de Nombres</h1>
+    <p class="subtitle">Ajouter, gérer et sauvegarder une liste de nombres</p>
+  </header>
+
+  <!-- Messages -->
+  <div class="message" *ngIf="message" [class]="'message-' + getMessageType()">
+    {{ message }}
+  </div>
+
+  <!-- Loading -->
+  <div class="loading" *ngIf="loading">
+    <div class="spinner"></div>
+    <p>Chargement...</p>
+  </div>
+
+  <!-- Formulaire d'ajout -->
+  <div class="add-form" *ngIf="!loading">
+    <div class="input-group">
+      <input 
+        type="number" 
+        [(ngModel)]="newNumber" 
+        (keypress)="onKeyPress($event)"
+        placeholder="Entrez un nombre..." 
+        class="number-input"
+        step="any">
+      <button (click)="addNumber()" 
+              [disabled]="!newNumber.trim()" 
+              class="btn btn-primary">
+        ➕ Ajouter
+      </button>
+    </div>
+  </div>
+
+  <!-- Statistiques -->
+  <div class="stats-card" *ngIf="numbers.length > 0">
+    <h3>📊 Statistiques</h3>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <span class="stat-label">Nombre total :</span>
+        <span class="stat-value">{{ statistics.count }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Somme :</span>
+        <span class="stat-value">{{ statistics.sum }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Moyenne :</span>
+        <span class="stat-value">{{ statistics.average }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Min :</span>
+        <span class="stat-value">{{ statistics.min }}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Max :</span>
+        <span class="stat-value">{{ statistics.max }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions du tableau -->
+  <div class="table-actions" *ngIf="numbers.length > 0">
+    <button (click)="sortNumbers('asc')" class="btn btn-secondary btn-sm">
+      ↗️ Tri croissant
+    </button>
+    <button (click)="sortNumbers('desc')" class="btn btn-secondary btn-sm">
+      ↘️ Tri décroissant
+    </button>
+    <button (click)="clearAll()" class="btn btn-danger btn-sm">
+      🗑️ Effacer tout
+    </button>
+  </div>
+
+  <!-- Tableau des nombres -->
+  <div class="table-container" *ngIf="numbers.length > 0; else emptyState">
+    <table class="numbers-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Nombre</th>
+          <th>Carré</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let number of numbers; let i = index" 
+            [class.even]="i % 2 === 0">
+          <td class="index-cell">{{ i + 1 }}</td>
+          <td class="number-cell">
+            <span class="number-value">{{ number }}</span>
+          </td>
+          <td class="square-cell">{{ number * number }}</td>
+          <td class="actions-cell">
+            <button (click)="removeNumber(i)" 
+                    class="btn btn-danger btn-xs"
+                    title="Supprimer ce nombre">
+              ❌
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- État vide -->
+  <ng-template #emptyState>
+    <div class="empty-state" *ngIf="!loading">
+      <div class="empty-icon">📊</div>
+      <h3>Aucun nombre dans le tableau</h3>
+      <p>Commencez par ajouter votre premier nombre ci-dessus</p>
+    </div>
+  </ng-template>
+
+  <!-- Navigation -->
+  <nav class="page-nav">
+    <a routerLink="/home" class="nav-link">
+      🏠 Retour à l'accueil
+    </a>
+  </nav>
+</div>

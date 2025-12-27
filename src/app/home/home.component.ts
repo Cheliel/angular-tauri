@@ -14,7 +14,7 @@ export class HomeComponent implements OnInit {
   constructor() { }
 
   ngOnInit(): void {
-    console.log('HomeComponent INIT');
+    console.log('Hello les amis :) bienvenue sur votre application ! 🚀 Si vous ouvrez cette console c\'est probablement que j\'ai planté quelque chose. Bonne chance pour la suite !');
   }
 
 }
