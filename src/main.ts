@@ -45,9 +45,9 @@ bootstrapApplication(AppComponent, {
         component: DetailComponent
       },
       {
-        path: 'numbers',
-        loadComponent: () => import('./app/pages/numbers/numbers.component')
-        .then(m => m.NumbersComponent),
+        path: 'simple-table',
+        loadComponent: () => import('./app/pages/simple-table/simple-table.component')
+        .then(m => m.SimpleTableComponent),
         title: 'Gestionnaire de Nombres'
       },
       {

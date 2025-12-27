@@ -30,7 +30,105 @@ src-tauri/
 
 ---
 
-## 📄 **1. Composant Angular Frontend**
+## 📄 **1. Service Tauri**
+
+### **📄 src/app/core/services/tauri/tauri.interfaces.ts**
+```typescript
+export interface NumberData {
+  numbers: number[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface NumberStats {
+  count: number;
+  sum: number;
+  average: number;
+  min: number;
+  max: number;
+  created_at?: string;
+  updated_at?: string;
+}
+```
+
+### **📄 src/app/core/services/tauri/tauri.service.ts**
+```typescript
+import { Injectable } from '@angular/core';
+import { invoke } from '@tauri-apps/api/core';
+import { NumberData, NumberStats } from './tauri.interfaces';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class TauriService {
+
+  constructor() {}
+
+  get isTauri(): boolean {
+    return !!(window && window.__TAURI__);
+  }
+
+  // === GESTION DES NOMBRES ===
+  async loadNumbers(): Promise<number[]> {
+    try {
+      const data: NumberData = await invoke('load_numbers');
+      return data.numbers || [];
+    } catch (error) {
+      console.error('Erreur chargement nombres:', error);
+      return [];
+    }
+  }
+
+  async saveNumbers(numbers: number[]): Promise<boolean> {
+    try {
+      return await invoke('save_numbers', { numbers });
+    } catch (error) {
+      console.error('Erreur sauvegarde nombres:', error);
+      throw error;
+    }
+  }
+
+  async clearNumbers(): Promise<boolean> {
+    try {
+      return await invoke('clear_numbers');
+    } catch (error) {
+      console.error('Erreur effacement nombres:', error);
+      throw error;
+    }
+  }
+
+  async getNumbersStats(): Promise<NumberStats> {
+    try {
+      return await invoke('get_numbers_stats');
+    } catch (error) {
+      console.error('Erreur stats nombres:', error);
+      throw error;
+    }
+  }
+
+  async getNumbersInfo(): Promise<string> {
+    try {
+      return await invoke('get_numbers_info');
+    } catch (error) {
+      console.error('Erreur info nombres:', error);
+      throw error;
+    }
+  }
+
+  async clearAllData(): Promise<string> {
+    try {
+      return await invoke('clear_all_data');
+    } catch (error) {
+      console.error('Erreur suppression données:', error);
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## 📄 **2. Composant Angular Frontend**
 
 ### **📄 src/app/simple-table/simple-table.component.ts**
 ```typescript
@@ -38,7 +136,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { invoke } from '@tauri-apps/api/tauri';
+import { TauriService } from '../core/services/tauri/tauri.service';
 
 @Component({
   selector: 'app-simple-table',
@@ -60,6 +158,8 @@ export class SimpleTableComponent implements OnInit {
   saving = false;
   message = '';
 
+  constructor(private tauriService: TauriService) {}
+
   async ngOnInit() {
     await this.loadNumbers();
   }
@@ -70,9 +170,9 @@ export class SimpleTableComponent implements OnInit {
     this.message = 'Chargement des données...';
     
     try {
-      // Vérifier si on est dans Tauri
-      if (typeof window !== 'undefined' && window.__TAURI__) {
-        this.numbers = await invoke<number[]>('load_numbers');
+      if (this.tauriService.isTauri) {
+        // Utiliser le service Tauri
+        this.numbers = await this.tauriService.loadNumbers();
         this.message = `${this.numbers.length} nombres chargés depuis le fichier`;
       } else {
         // Mode navigateur - données de test
@@ -115,13 +215,13 @@ export class SimpleTableComponent implements OnInit {
     }
   }
 
-  // Sauvegarder via Tauri
+  // Sauvegarder via le service Tauri
   async saveNumbers() {
     this.saving = true;
     
     try {
-      if (typeof window !== 'undefined' && window.__TAURI__) {
-        await invoke('save_numbers', { numbers: this.numbers });
+      if (this.tauriService.isTauri) {
+        await this.tauriService.saveNumbers(this.numbers);
         this.message = `${this.numbers.length} nombres sauvegardés`;
       } else {
         // Mode navigateur - simulation
@@ -141,7 +241,18 @@ export class SimpleTableComponent implements OnInit {
     if (confirm('Êtes-vous sûr de vouloir vider le tableau ?')) {
       this.numbers = [];
       this.message = 'Tableau vidé';
-      await this.saveNumbers();
+      
+      if (this.tauriService.isTauri) {
+        try {
+          await this.tauriService.clearNumbers();
+          this.message = 'Tableau vidé et sauvegardé';
+        } catch (error) {
+          console.error('Erreur lors de l\'effacement:', error);
+          this.message = `Erreur effacement: ${error}`;
+        }
+      } else {
+        this.message = 'Tableau vidé (mode navigateur)';
+      }
     }
   }
 
@@ -163,6 +274,19 @@ export class SimpleTableComponent implements OnInit {
   // Trouver le minimum
   getMin(): number {
     return this.numbers.length > 0 ? Math.min(...this.numbers) : 0;
+  }
+
+  // Charger les statistiques depuis Tauri (optionnel)
+  async loadStats() {
+    if (this.tauriService.isTauri) {
+      try {
+        const stats = await this.tauriService.getNumbersStats();
+        console.log('Statistiques depuis Tauri:', stats);
+        this.message = `Stats chargées: ${stats.count} nombres, somme: ${stats.sum}`;
+      } catch (error) {
+        console.error('Erreur chargement stats:', error);
+      }
+    }
   }
 }
 ```
@@ -716,7 +840,7 @@ export class SimpleTableComponent implements OnInit {
 
 ---
 
-## 🦀 **2. Backend Rust (Tauri)**
+## 🦀 **3. Backend Rust (Tauri)**
 
 ### **📄 src-tauri/src/table_storage.rs**
 ```rust
@@ -760,8 +884,21 @@ fn get_data_file_path(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(app_dir.join("numbers_data.json"))
 }
 
+// ===== COMMANDES POUR LE SERVICE ANGULAR =====
+
 #[command]
-pub async fn save_numbers(app: AppHandle, numbers: Vec<f64>) -> Result<String, String> {
+pub async fn load_numbers(app: AppHandle) -> Result<NumbersData, String> {
+    match load_numbers_data(&app).await {
+        Ok(data) => Ok(data),
+        Err(_) => {
+            // Si aucun fichier n'existe, retourner données vides
+            Ok(NumbersData::new(vec![]))
+        }
+    }
+}
+
+#[command]
+pub async fn save_numbers(app: AppHandle, numbers: Vec<f64>) -> Result<bool, String> {
     let file_path = get_data_file_path(&app)?;
     
     // Charger les données existantes ou créer nouvelles
@@ -782,23 +919,55 @@ pub async fn save_numbers(app: AppHandle, numbers: Vec<f64>) -> Result<String, S
     fs::write(&file_path, json_content)
         .map_err(|e| format!("Erreur écriture fichier: {}", e))?;
     
-    Ok(format!(
-        "Sauvegarde réussie: {} nombres dans {}",
-        data.numbers.len(),
-        file_path.display()
-    ))
+    Ok(true)
 }
 
 #[command]
-pub async fn load_numbers(app: AppHandle) -> Result<Vec<f64>, String> {
+pub async fn clear_numbers(app: AppHandle) -> Result<bool, String> {
+    save_numbers(app, vec![]).await
+}
+
+#[command]
+pub async fn get_numbers_stats(app: AppHandle) -> Result<serde_json::Value, String> {
     match load_numbers_data(&app).await {
-        Ok(data) => Ok(data.numbers),
-        Err(_) => {
-            // Si aucun fichier n'existe, retourner tableau vide
-            Ok(vec![])
+        Ok(data) => {
+            if data.numbers.is_empty() {
+                return Ok(serde_json::json!({
+                    "count": 0,
+                    "sum": 0,
+                    "average": 0,
+                    "min": 0,
+                    "max": 0
+                }));
+            }
+            
+            let count = data.numbers.len();
+            let sum: f64 = data.numbers.iter().sum();
+            let average = sum / count as f64;
+            let min = data.numbers.iter().fold(f64::INFINITY, |a, &b| a.min(b));
+            let max = data.numbers.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+            
+            Ok(serde_json::json!({
+                "count": count,
+                "sum": sum,
+                "average": average,
+                "min": min,
+                "max": max,
+                "created_at": data.created_at,
+                "updated_at": data.updated_at
+            }))
         }
+        Err(_) => Ok(serde_json::json!({
+            "count": 0,
+            "sum": 0,
+            "average": 0,
+            "min": 0,
+            "max": 0
+        }))
     }
 }
+
+// ===== FONCTIONS UTILITAIRES =====
 
 async fn load_numbers_data(app: &AppHandle) -> Result<NumbersData, String> {
     let file_path = get_data_file_path(app)?;
@@ -844,47 +1013,6 @@ pub async fn clear_all_data(app: AppHandle) -> Result<String, String> {
         Ok("Aucune donnée à supprimer".to_string())
     }
 }
-
-// Commandes utilitaires
-#[command]
-pub async fn get_stats(app: AppHandle) -> Result<serde_json::Value, String> {
-    match load_numbers_data(&app).await {
-        Ok(data) => {
-            if data.numbers.is_empty() {
-                return Ok(serde_json::json!({
-                    "count": 0,
-                    "sum": 0,
-                    "average": 0,
-                    "min": 0,
-                    "max": 0
-                }));
-            }
-            
-            let count = data.numbers.len();
-            let sum: f64 = data.numbers.iter().sum();
-            let average = sum / count as f64;
-            let min = data.numbers.iter().fold(f64::INFINITY, |a, &b| a.min(b));
-            let max = data.numbers.iter().fold(f64::NEG_INFINITY, |a, &b| a.max(b));
-            
-            Ok(serde_json::json!({
-                "count": count,
-                "sum": sum,
-                "average": average,
-                "min": min,
-                "max": max,
-                "created_at": data.created_at,
-                "updated_at": data.updated_at
-            }))
-        }
-        Err(_) => Ok(serde_json::json!({
-            "count": 0,
-            "sum": 0,
-            "average": 0,
-            "min": 0,
-            "max": 0
-        }))
-    }
-}
 ```
 
 ### **📄 src-tauri/src/main.rs** (Mise à jour)
@@ -899,12 +1027,13 @@ use table_storage::*;
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
-            // Commandes pour le tableau de nombres
-            save_numbers,
+            // Commandes pour le tableau de nombres (compatibles avec TauriService)
             load_numbers,
+            save_numbers,
+            clear_numbers,
+            get_numbers_stats,
             get_numbers_info,
             clear_all_data,
-            get_stats,
             
             // Autres commandes existantes si vous en avez
             greet // par exemple
@@ -948,7 +1077,7 @@ custom-protocol = ["tauri/custom-protocol"]
 
 ---
 
-## 🛣️ **3. Configuration des Routes**
+## 🛣️ **4. Configuration des Routes**
 
 ### **📄 src/app/app.routes.ts**
 ```typescript
@@ -1060,36 +1189,64 @@ export const routes: Routes = [
 
 ---
 
-## 🧪 **4. Tests**
+## 🧪 **5. Tests**
 
 ### **📄 src/app/simple-table/simple-table.component.spec.ts**
 ```typescript
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { SimpleTableComponent } from './simple-table.component';
+import { TauriService } from '../core/services/tauri/tauri.service';
 import { provideRouter } from '@angular/router';
 
 describe('SimpleTableComponent', () => {
   let component: SimpleTableComponent;
   let fixture: ComponentFixture<SimpleTableComponent>;
+  let mockTauriService: jasmine.SpyObj<TauriService>;
 
   beforeEach(async () => {
+    const spy = jasmine.createSpyObj('TauriService', [
+      'loadNumbers', 
+      'saveNumbers', 
+      'clearNumbers', 
+      'getNumbersStats'
+    ], {
+      isTauri: false
+    });
+
     await TestBed.configureTestingModule({
       imports: [SimpleTableComponent],
-      providers: [provideRouter([])]
+      providers: [
+        provideRouter([]),
+        { provide: TauriService, useValue: spy }
+      ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(SimpleTableComponent);
     component = fixture.componentInstance;
+    mockTauriService = TestBed.inject(TauriService) as jasmine.SpyObj<TauriService>;
   });
 
   it('should create', () => {
     expect(component).toBeTruthy();
   });
 
+  it('should load numbers on init', async () => {
+    mockTauriService.loadNumbers.and.returnValue(Promise.resolve([1, 2, 3]));
+    
+    await component.ngOnInit();
+    
+    expect(mockTauriService.loadNumbers).toHaveBeenCalled();
+    expect(component.numbers).toEqual([1, 2, 3]);
+  });
+
   it('should add number to array', async () => {
+    mockTauriService.saveNumbers.and.returnValue(Promise.resolve(true));
     component.newNumber = 42;
+    
     await component.addNumber();
+    
     expect(component.numbers).toContain(42);
+    expect(mockTauriService.saveNumbers).toHaveBeenCalledWith([42]);
   });
 
   it('should calculate sum correctly', () => {
@@ -1113,23 +1270,31 @@ describe('SimpleTableComponent', () => {
   });
 
   it('should remove number at index', async () => {
+    mockTauriService.saveNumbers.and.returnValue(Promise.resolve(true));
     component.numbers = [10, 20, 30];
+    
     await component.removeNumber(1);
+    
     expect(component.numbers).toEqual([10, 30]);
+    expect(mockTauriService.saveNumbers).toHaveBeenCalledWith([10, 30]);
   });
 
-  it('should clear all numbers', async () => {
-    component.numbers = [10, 20, 30];
+  it('should clear all numbers with Tauri service', async () => {
+    mockTauriService.clearNumbers.and.returnValue(Promise.resolve(true));
     spyOn(window, 'confirm').and.returnValue(true);
+    component.numbers = [10, 20, 30];
+    
     await component.clearAll();
+    
     expect(component.numbers.length).toBe(0);
+    expect(mockTauriService.clearNumbers).toHaveBeenCalled();
   });
 });
 ```
 
 ---
 
-## ⚙️ **5. Configuration Tauri**
+## ⚙️ **6. Configuration Tauri**
 
 ### **📄 src-tauri/tauri.conf.json**
 ```json
@@ -1161,7 +1326,7 @@ describe('SimpleTableComponent', () => {
     },
     "bundle": {
       "active": true,
-      "category": "Productivity",
+      "category": "papi-mami",
       "copyright": "",
       "identifier": "com.example.simple-table",
       "longDescription": "Application simple pour gérer un tableau de nombres avec sauvegarde locale",
@@ -1188,7 +1353,7 @@ describe('SimpleTableComponent', () => {
 
 ---
 
-## 🚀 **6. Utilisation**
+## 🚀 **7. Utilisation**
 
 ### **Commandes de développement**
 ```bash
@@ -1223,14 +1388,28 @@ Les données sont sauvegardées dans :
 
 Ce tutoriel vous donne une application complète et fonctionnelle avec :
 
-🔧 **Frontend Angular** : Composant standalone avec formulaire, tableau, et statistiques
+🔧 **Service Angular** : TauriService centralisé pour toute la communication avec Tauri
 
-🦀 **Backend Rust/Tauri** : Sauvegarde JSON locale avec gestion d'erreurs
+🚀 **Frontend Angular** : Composant standalone qui utilise le service au lieu des appels invoke directs
+
+🦀 **Backend Rust/Tauri** : Commandes adaptées aux méthodes du service avec types cohérents
 
 🎨 **Design moderne** : Interface responsive avec animations et états visuels
 
-🧪 **Tests inclus** : Tests unitaires pour valider les fonctionnalités
+🧪 **Tests inclus** : Tests unitaires avec mocks du service Tauri
 
 📱 **Cross-platform** : Fonctionne sur Windows, macOS, et Linux
 
-Une base parfaite pour apprendre Angular + Tauri ! 🚀
+### **🔄 Avantages de cette architecture :**
+
+✅ **Centralisation** : Toutes les appels Tauri dans un seul service
+
+✅ **Types sécurisés** : Interfaces TypeScript pour les données
+
+✅ **Testabilité** : Service facilement mockable pour les tests
+
+✅ **Maintenance** : Modifications centralisées dans le service
+
+✅ **Réutilisabilité** : Service utilisable dans tous les composants
+
+Une architecture propre et maintenable pour vos applications Angular + Tauri ! 🚀

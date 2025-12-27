@@ -1,29 +1,30 @@
-// Prevent console window on Windows in release builds
+// Empêche l'ouverture de la console sur Windows en mode release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod numbers;
+mod table_storage;
 
-use numbers::*;
-
-#[tauri::command]
-async fn hello_world_command(_app: tauri::AppHandle) -> Result<String, String> {
-  println!("I was invoked from JS!");
-  Ok("Hello world from Tauri!".into())
-}
-
+use table_storage::*;
 
 fn main() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            // Commandes pour le tableau de nombres (compatibles avec TauriService)
             load_numbers,
             save_numbers,
             clear_numbers,
             get_numbers_stats,
-            add_number,
-            remove_number,
-            export_numbers_csv
+            get_numbers_info,
+            clear_all_data,
+            
+            // Autres commandes existantes si vous en avez
+            greet // par exemple
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-        }
-        
+        .expect("Erreur lors du lancement de l'application Tauri");
+}
+
+// Commande d'exemple existante
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Bonjour, {} ! Vous avez été salué depuis Rust!", name)
+}

@@ -1,0 +1,144 @@
+<div class="simple-table-container">
+  
+  <!-- En-tête -->
+  <header class="page-header">
+    <h1>📊 Tableau de Nombres</h1>
+    <p class="subtitle">Ajoutez et gérez vos nombres avec sauvegarde automatique</p>
+  </header>
+
+  <!-- Formulaire d'ajout -->
+  <section class="add-number-form">
+    <div class="form-group">
+      <label for="newNumber">Nouveau nombre :</label>
+      <div class="input-group">
+        <input 
+          id="newNumber"
+          type="number" 
+          [(ngModel)]="newNumber" 
+          placeholder="Saisissez un nombre"
+          class="form-control"
+          (keyup.enter)="addNumber()"
+          [disabled]="saving">
+        <button 
+          (click)="addNumber()" 
+          class="btn btn-primary"
+          [disabled]="saving || newNumber === null || newNumber === undefined">
+          <span *ngIf="saving">💾</span>
+          <span *ngIf="!saving">➕</span>
+          Ajouter
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Message de statut -->
+  <div class="status-message" 
+       [class.loading]="loading" 
+       [class.saving]="saving"
+       *ngIf="message">
+    <span class="status-icon">
+      <span *ngIf="loading">⏳</span>
+      <span *ngIf="saving">💾</span>
+      <span *ngIf="!loading && !saving">ℹ️</span>
+    </span>
+    {{ message }}
+  </div>
+
+  <!-- Statistiques -->
+  <section class="statistics" if="numbers.length > 0">
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total</span>
+        <span class="stat-value">{{ numbers.length }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Somme</span>
+        <span class="stat-value">{{ getSum() }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Moyenne</span>
+        <span class="stat-value">{{ getAverage() | number:'1.1-2' }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Max</span>
+        <span class="stat-value max">{{ getMax() }}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Min</span>
+        <span class="stat-value min">{{ getMin() }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tableau des nombres -->
+  <section class="numbers-table">
+    <div class="table-header">
+      <h2>Liste des Nombres ({{ numbers.length }})</h2>
+      <div class="table-actions">
+        <button (click)="loadNumbers()" 
+                class="btn btn-secondary" 
+                [disabled]="loading">
+          🔄 Recharger
+        </button>
+        <button (click)="clearAll()" 
+                class="btn btn-danger" 
+                [disabled]="numbers.length === 0 || saving">
+          🗑️ Vider
+        </button>
+      </div>
+    </div>
+
+    <!-- État vide -->
+    <div class="empty-state" if="numbers.length === 0 && !loading">
+      <div class="empty-icon">📝</div>
+      <h3>Aucun nombre ajouté</h3>
+      <p>Commencez par ajouter un nombre ci-dessus</p>
+    </div>
+
+    <!-- État de chargement -->
+    <div class="loading-state" if="loading">
+      <div class="spinner"></div>
+      <p>Chargement en cours...</p>
+    </div>
+
+    <!-- Tableau -->
+    <div class="table-wrapper" if="numbers.length > 0 && !loading">
+      <table class="numbers-table-grid">
+        <thead>
+          <tr>
+            <th>Index</th>
+            <th>Valeur</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let number of numbers; let i = index" 
+              [class.highlight]="number === getMax() || number === getMin()">
+            <td class="index-cell">{{ i + 1 }}</td>
+            <td class="number-cell" 
+                [class.max]="number === getMax()" 
+                [class.min]="number === getMin()">
+              {{ number }}
+            </td>
+            <td class="actions-cell">
+              <button (click)="removeNumber(i)" 
+                      class="btn btn-sm btn-danger"
+                      [disabled]="saving"
+                      title="Supprimer ce nombre">
+                ❌
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Navigation -->
+  <nav class="page-navigation">
+    <a routerLink="/home" class="nav-link">
+      🏠 Retour à l'accueil
+    </a>
+  </nav>
+
+</div>
